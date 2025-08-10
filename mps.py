@@ -1,18 +1,11 @@
 import numpy as np
-import random
 
-min_dim_pow = 2
-max_dim_pow = 3
+import utils
 
-Na = 2 ** random.randint(min_dim_pow, max_dim_pow)
-Nb = 2 ** random.randint(min_dim_pow, max_dim_pow)
+L = 10
+d = 2
 
-psi = np.random.random((Na, Nb))
-u, s, v = np.linalg.svd(psi)
+c = np.random.random(d ** L)
+a = utils.convert_to_mps(c, L, d)
 
-print(f'Na: {Na}')
-print(f'Nb: {Nb}')
-print(f'psi: {psi}')
-print(f'u: {u}')
-print(f's: {s}')
-print(f'v: {v}')
+print(a[0])
