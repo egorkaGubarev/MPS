@@ -1,6 +1,6 @@
 import numpy as np
 
-import utils
+import count
 
 
 def to_left_mps_with_qr(c, sites, d):
@@ -29,7 +29,7 @@ def to_left_mps_with_qr(c, sites, d):
     return a
 
 
-def to_left_mps_with_svd(c, sites, d):
+def to_left_mps_with_svd(c, sites, d, bound=None):
     steps = sites - 1
     a = []
     rank = 1
@@ -37,6 +37,10 @@ def to_left_mps_with_svd(c, sites, d):
 
     for i in range(steps):
         u, s, v = np.linalg.svd(psi, full_matrices=False)
+        if bound is not None:
+            u = u[:, :bound]
+            s = s[:bound]
+            v = v[:bound, :]
         rank_prev = rank
         rank = u.shape[1]
         a.append(np.zeros((d, rank_prev, rank)))
@@ -49,14 +53,14 @@ def to_left_mps_with_svd(c, sites, d):
         if i < steps - 1:
             psi = psi.reshape(d * rank, d ** (sites - i - 2))
 
-    a.append(np.zeros((d, d, 1)))
+    a.append(np.zeros((d, rank, 1)))
     for sigma in range(d):
         a[steps][sigma, :, 0] = psi[:, sigma]
 
     return a
 
 
-def to_mixed_mps_with_svd(c, sites, d, singul_bond):
+def to_mixed_mps_with_svd(c, sites, d, singul_bond, bound=None):
     a = []
     b = []
 
@@ -67,6 +71,10 @@ def to_mixed_mps_with_svd(c, sites, d, singul_bond):
 
     for i in range(singul_bond + 1):
         u, s, v = np.linalg.svd(psi, full_matrices=False)
+        if bound is not None:
+            u = u[:, :bound]
+            s = s[:bound]
+            v = v[:bound, :]
         rank_prev = rank
         rank = u.shape[1]
         a.append(np.zeros((d, rank_prev, rank)))
@@ -84,6 +92,10 @@ def to_mixed_mps_with_svd(c, sites, d, singul_bond):
 
     for i in range(sites - singul_bond - 2):
         u, s, v = np.linalg.svd(psi, full_matrices=False)
+        if bound is not None:
+            u = u[:, :bound]
+            s = s[:bound]
+            v = v[:bound, :]
         rank_prev = rank
         rank = u.shape[1]
         b.append(np.zeros((d, rank, rank_prev)))
@@ -138,7 +150,7 @@ def to_right_mps_with_qr(c, sites, d):
     return list(reversed(b))
 
 
-def to_right_mps_with_svd(c, sites, d):
+def to_right_mps_with_svd(c, sites, d, bound=None):
     steps = sites - 1
     b = []
     rank = 1
@@ -146,6 +158,10 @@ def to_right_mps_with_svd(c, sites, d):
 
     for i in range(steps):
         u, s, v = np.linalg.svd(psi, full_matrices=False)
+        if bound is not None:
+            u = u[:, :bound]
+            s = s[:bound]
+            v = v[:bound, :]
         rank_prev = rank
         rank = u.shape[1]
         b.append(np.zeros((d, rank, rank_prev)))
@@ -165,43 +181,21 @@ def to_right_mps_with_svd(c, sites, d):
     return list(reversed(b))
 
 
-def from_mps(a):
-    sites = len(a)
+def from_mps(a, sites):
     d = a[0].shape[0]
-
-    c = np.zeros(d ** sites)
-    for i in range(d ** sites):
-        sigma = utils.count_sigma(i, d, sites)
+    n = d ** sites
+    c = np.zeros(n)
+    shift = 0
+    for i in range(n):
+        sigma = count.count_sigma(i, d, sites)
         mps = np.eye(1)
-
-        for j in range(sites):
-            mps_new = mps @ a[j][int(sigma[j]), :, :]
-            mps = mps_new
-
+        for j in range(len(a)):
+            m = a[j]
+            if len(m.shape) == 3:
+                mps_new = mps @ m[int(sigma[j - shift])]
+                mps = mps_new
+            else:
+                mps = mps @ m
+                shift = 1
         c[i] = mps[0, 0]
-
-    return c
-
-
-def from_mps_mixed(a, singul_bond):
-    sites = len(a) - 1
-    d = a[0].shape[0]
-
-    c = np.zeros(d ** sites)
-    for i in range(d ** sites):
-        sigma = utils.count_sigma(i, d, sites)
-        mps = np.eye(1)
-
-        for j in range(singul_bond + 1):
-            mps_new = mps @ a[j][int(sigma[j]), :, :]
-            mps = mps_new
-
-        mps = mps @ a[singul_bond + 1][:, :]
-
-        for j in range(singul_bond + 2, sites + 1):
-            mps_new = mps @ a[j][int(sigma[j - 1]), :, :]
-            mps = mps_new
-
-        c[i] = mps[0, 0]
-
     return c
